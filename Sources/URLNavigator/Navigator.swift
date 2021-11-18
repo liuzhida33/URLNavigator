@@ -122,7 +122,7 @@ public final class Navigator {
     
     @discardableResult
     public func push(_ url: URLConvertible, context: Any? = nil, from: UINavigationController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        guard let viewController = self.viewController(for: url, context: context) else { return nil }
+        guard let viewController = viewController(for: url, context: context) else { return nil }
         return push(viewController, from: from, animated: animated, completion: completion)
     }
     
@@ -139,7 +139,7 @@ public final class Navigator {
     
     @discardableResult
     public func present(_ url: URLConvertible, context: Any? = nil, wrap: UINavigationController.Type? = nil, from: UIViewController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        guard let viewController = self.viewController(for: url, context: context) else { return nil }
+        guard let viewController = viewController(for: url, context: context) else { return nil }
         return present(viewController, context: context, wrap: wrap, from: from, animated: animated, completion: completion)
     }
     

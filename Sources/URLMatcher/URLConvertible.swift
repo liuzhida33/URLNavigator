@@ -3,11 +3,18 @@ import Foundation
 public protocol URLConvertible {
     var urlValue: URL? { get }
     var urlStringValue: String { get }
+    var queryParameters: [String: String] { get }
     var queryItems: [URLQueryItem]? { get }
 }
 
 extension URLConvertible {
     public var queryItems: [URLQueryItem]? { URLComponents(string: urlStringValue)?.queryItems }
+    
+    public var queryParameters: [String: String] {
+        var parameters: [String: String] = [:]
+        queryItems?.forEach { parameters[$0.name] = $0.value }
+        return parameters
+    }
 }
 
 extension String: URLConvertible {

@@ -4,6 +4,16 @@ public protocol NavigatorRegistering {
     static func registerAllURLs()
 }
 
+public protocol Navigating {
+    var navigator: Navigator { get }
+}
+
+extension Navigating {
+    public var navigator: Navigator {
+        Navigator.root
+    }
+}
+
 public typealias URLPattern = String
 public typealias NavigatorFactoryViewController = (_ url: URLConvertible, _ values: [String: Any], _ context: Any?) -> UIViewController?
 public typealias NavigatorFactoryOpenHandler = (_ url: URLConvertible, _ values: [String: Any], _ context: Any?) -> Bool
@@ -78,6 +88,10 @@ public final class Navigator {
     @discardableResult
     public static func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
         main.open(url, context: context)
+    }
+    
+    public init() {
+        
     }
     
     public func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {

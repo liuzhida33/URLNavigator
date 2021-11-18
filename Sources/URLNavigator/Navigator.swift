@@ -172,7 +172,7 @@ public final class Navigator {
     }
     
     private final func lookup(_ url: URLConvertible, context: Any?) -> NavigatorOpenHandler? {
-        let urlPatterns = Array(viewControllerFactories.keys)
+        let urlPatterns = Array(handlerFactories.keys)
         guard let match = matcher.match(url, from: urlPatterns) else { return nil }
         guard let handler = handlerFactories[match.pattern] else { return nil }
         return  { handler(url, match.values, context) }

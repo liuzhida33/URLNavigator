@@ -10,7 +10,7 @@ public protocol Navigating {
 
 extension Navigating {
     public var navigator: Navigator {
-        Navigator.root
+        Navigator.main
     }
 }
 
@@ -19,173 +19,120 @@ public typealias NavigatorFactoryViewController = (_ url: URLConvertible, _ valu
 public typealias NavigatorFactoryOpenHandler = (_ url: URLConvertible, _ values: [String: Any], _ context: Any?) -> Bool
 public typealias NavigatorOpenHandler = () -> Bool
 
-public final class Navigator {
+public struct Navigator {
     
-    public static var main: Navigator = Navigator()
-    public static var root: Navigator = main
-    
-    /// 调用函数以强制一次性初始化解析器注册表。 通常不需要主动调用
-    /// 第一次调用解析函数时会自动解析
-    public final func registerServices() {
-        lock.lock()
-        defer { lock.unlock() }
-        registrationCheck()
-    }
-    
-    /// 调用函数以强制一次性初始化解析器注册表。 通常不需要主动调用
-    /// 第一次调用解析函数时会自动解析
-    public static var registerServices: (() -> Void)? = {
-        lock.lock()
-        defer { lock.unlock() }
-        registrationCheck()
-    }
-    
-    /// 调用以有效地将解析器重置为其初始状态，包括调用 `registerAllServices`（如果提供）
-    public static func reset() {
-        lock.lock()
-        defer { lock.unlock() }
-        main = Navigator()
-        root = main
-        registrationNeeded = true
-    }
-    
-    public static func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
-        main.register(pattern, factory)
-    }
-    
-    public static func handle(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) {
-        main.handle(pattern, factory)
-    }
-    
-    public static func viewController(for url: URLConvertible, context: Any? = nil) -> UIViewController? {
-        main.viewController(for: url, context: context)
-    }
-    
-    public static func handler(for url: URLConvertible, context: Any?) -> NavigatorOpenHandler? {
-        main.handler(for: url, context: context)
-    }
-    
-    @discardableResult
-    public static func push(_ url: URLConvertible, context: Any? = nil, from: UINavigationController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        main.push(url, context: context, from: from, animated: animated, completion: completion)
-    }
-    
-    @discardableResult
-    public static func push(_ viewController: UIViewController, from: UINavigationController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        main.push(viewController, from: from, animated: animated, completion: completion)
-    }
-    
-    @discardableResult
-    public static func present(_ url: URLConvertible, context: Any? = nil, wrap: UINavigationController.Type? = nil, from: UIViewController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        main.present(url, context: context, wrap: wrap, from: from, animated: animated, completion: completion)
-    }
-    
-    @discardableResult
-    public static func present(_ viewController: UIViewController, context: Any? = nil, wrap: UINavigationController.Type? = nil, from: UIViewController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        main.present(viewController, context: context, wrap: wrap, from: from, animated: animated, completion: completion)
-    }
-    
-    @discardableResult
-    public static func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
-        main.open(url, context: context)
-    }
-    
-    public init() {
-        
-    }
+    public static var main: Navigator = Navigator(dataSource: .init(matcher: URLMatcher()))
     
     public func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
-        lock.lock()
-        defer { lock.unlock() }
-        viewControllerFactories[pattern] = factory
+        _register(pattern, factory)
     }
     
     public func handle(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) {
-        lock.lock()
-        defer { lock.unlock() }
-        handlerFactories[pattern] = factory
+        _handle(pattern, factory)
     }
     
-    public func viewController(for url: URLConvertible, context: Any? = nil) -> UIViewController? {
-        lock.lock()
-        defer { lock.unlock() }
-        registrationCheck()
-        return lookup(url, context: context)
+    public func build(for url: URLConvertible, context: Any? = nil) -> UIViewController? {
+        _build(url, context)
     }
     
-    public func handler(for url: URLConvertible, context: Any?) -> NavigatorOpenHandler? {
-        lock.lock()
-        defer { lock.unlock() }
-        registrationCheck()
-        return lookup(url, context: context)
-    }
-    
-    @discardableResult
-    public func push(_ url: URLConvertible, context: Any? = nil, from: UINavigationController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        guard let viewController = viewController(for: url, context: context) else { return nil }
-        return push(viewController, from: from, animated: animated, completion: completion)
-    }
-    
-    @discardableResult
-    public func push(_ viewController: UIViewController, from: UINavigationController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        guard (viewController is UINavigationController) == false else { return nil }
-        guard let navigationController = from ?? UIViewController.topMostController?.navigationController else { return nil }
-        CATransaction.begin()
-        CATransaction.setCompletionBlock(completion)
-        navigationController.pushViewController(viewController, animated: animated)
-        CATransaction.commit()
-        return viewController
-    }
-    
-    @discardableResult
-    public func present(_ url: URLConvertible, context: Any? = nil, wrap: UINavigationController.Type? = nil, from: UIViewController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        guard let viewController = viewController(for: url, context: context) else { return nil }
-        return present(viewController, context: context, wrap: wrap, from: from, animated: animated, completion: completion)
-    }
-    
-    @discardableResult
-    public func present(_ viewController: UIViewController, context: Any? = nil, wrap: UINavigationController.Type? = nil, from: UIViewController? = nil, animated: Bool = true, completion: (() -> Void)? = nil) -> UIViewController? {
-        guard let fromViewController = from ?? UIViewController.topMostController else { return nil }
-        
-        let viewControllerToPresent: UIViewController
-        if let navigationControllerClass = wrap, (viewController is UINavigationController) == false {
-            viewControllerToPresent = navigationControllerClass.init(rootViewController: viewController)
-        } else {
-            viewControllerToPresent = viewController
-        }
-        
-        fromViewController.present(viewControllerToPresent, animated: animated, completion: completion)
-        return viewController
-    }
-    
-    @discardableResult
     public func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
-        guard let handler = handler(for: url, context: context) else { return false }
-        return handler()
+        _open(url, context)
     }
     
-    private final func lookup(_ url: URLConvertible, context: Any?) -> UIViewController? {
-        let urlPatterns = Array(viewControllerFactories.keys)
-        guard let match = matcher.match(url, from: urlPatterns) else { return nil }
-        guard let factory = viewControllerFactories[match.pattern] else { return nil }
-        return factory(url, match.values, context)
+    public func viewControllerFactories() -> [URLPattern: NavigatorFactoryViewController] {
+        _viewControllerFactories()
     }
     
-    private final func lookup(_ url: URLConvertible, context: Any?) -> NavigatorOpenHandler? {
-        let urlPatterns = Array(handlerFactories.keys)
-        guard let match = matcher.match(url, from: urlPatterns) else { return nil }
-        guard let handler = handlerFactories[match.pattern] else { return nil }
-        return  { handler(url, match.values, context) }
+    public func handlerFactories() -> [URLPattern: NavigatorFactoryOpenHandler] {
+        _handlerFactories()
     }
     
-    private let matcher = URLMatcher()
-    private let lock = Navigator.lock
-    private var viewControllerFactories: [URLPattern: NavigatorFactoryViewController] = [:]
-    private var handlerFactories: [URLPattern: NavigatorFactoryOpenHandler] = [:]
+    private let _register: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void
+    private let _handle: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void
+    private let _build: (_ url: URLConvertible, _ context: Any?) -> UIViewController?
+    private let _open: (_ url: URLConvertible, _ context: Any?) -> Bool
+    private let _viewControllerFactories: () -> [URLPattern: NavigatorFactoryViewController]
+    private let _handlerFactories: () -> [URLPattern: NavigatorFactoryOpenHandler]
+    
+    init(
+        register: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void,
+        handle: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void,
+        build: @escaping (_ url: URLConvertible, _ context: Any?) -> UIViewController?,
+        open: @escaping (_ url: URLConvertible, _ context: Any?) -> Bool,
+        viewControllerFactories: @escaping () -> [URLPattern: NavigatorFactoryViewController],
+        handlerFactories: @escaping () -> [URLPattern: NavigatorFactoryOpenHandler]
+    ) {
+        self._register = register
+        self._handle = handle
+        self._build = build
+        self._open = open
+        self._viewControllerFactories = viewControllerFactories
+        self._handlerFactories = handlerFactories
+    }
 }
 
-extension Navigator {
-    fileprivate static let lock = NSRecursiveLock()
+public extension Navigator {
+    
+    init(dataSource: Navigator.Datasource) {
+        self.init(
+            register: { pattern, factory in
+                dataSource.register(pattern, factory)
+            },
+            handle: { pattern, factory in
+                dataSource.handle(pattern, factory)
+            },
+            build: { url, context in
+                dataSource.build(for: url, context: context)
+            },
+            open: { url, context in
+                dataSource.open(url, context: context)
+            },
+            viewControllerFactories: {
+                dataSource.viewControllerFactories
+            },
+            handlerFactories: {
+                dataSource.handlerFactories
+            }
+        )
+    }
+}
+
+public extension Navigator {
+    
+    final class Datasource {
+        
+        public let matcher: URLMatcher
+        public private(set) var viewControllerFactories: [URLPattern: NavigatorFactoryViewController] = [:]
+        public private(set) var handlerFactories: [URLPattern: NavigatorFactoryOpenHandler] = [:]
+        
+        public init(matcher: URLMatcher) {
+            self.matcher = matcher
+        }
+        
+        fileprivate func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
+            viewControllerFactories[pattern] = factory
+        }
+        
+        fileprivate func handle(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) {
+            handlerFactories[pattern] = factory
+        }
+        
+        fileprivate func build(for url: URLConvertible, context: Any?) -> UIViewController? {
+            registrationCheck()
+            let urlPatterns = Array(viewControllerFactories.keys)
+            guard let match = matcher.match(url, from: urlPatterns) else { return nil }
+            guard let factory = viewControllerFactories[match.pattern] else { return nil }
+            return factory(url, match.values, context)
+        }
+        
+        fileprivate func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
+            registrationCheck()
+            let urlPatterns = Array(handlerFactories.keys)
+            guard let match = matcher.match(url, from: urlPatterns) else { return false }
+            guard let handler = handlerFactories[match.pattern] else { return false }
+            return handler(url, match.values, context)
+        }
+    }
 }
 
 // Registration Internals
@@ -197,7 +144,7 @@ private func registrationCheck() {
     guard registrationNeeded else {
         return
     }
-    if let registering = (Navigator.root as Any) as? NavigatorRegistering {
+    if let registering = (Navigator.main as Any) as? NavigatorRegistering {
         type(of: registering).registerAllURLs()
     }
     registrationNeeded = false

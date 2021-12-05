@@ -1,165 +1,63 @@
 # URLNavigator
 
-# Fork [URLNavigator](https://github.com/devxoul/URLNavigator)
+# [URLNavigator](https://github.com/liuzhida33/URLNavigator)
 
-![Swift](https://img.shields.io/badge/Swift-3.0-orange.svg)
-[![CocoaPods](http://img.shields.io/cocoapods/v/URLNavigator.svg)](https://cocoapods.org/pods/URLNavigator)
-[![Carthage compatible](https://img.shields.io/badge/Carthage-compatible-4BC51D.svg?style=flat)](https://github.com/Carthage/Carthage)
-[![Build Status](https://travis-ci.org/devxoul/URLNavigator.svg?branch=master)](https://travis-ci.org/devxoul/URLNavigator)
-[![CodeCov](https://img.shields.io/codecov/c/github/devxoul/URLNavigator.svg)](https://codecov.io/gh/devxoul/URLNavigator)
-[![CocoaDocs](https://img.shields.io/cocoapods/metrics/doc-percent/URLNavigator.svg)](http://cocoadocs.org/docsets/URLNavigator/)
+`URLNavigator`提供了一种通过URL浏览视图控制器的优雅方式。URL模式可以通过使用`URLNavigator.register(_:_:)`函数映射。
 
-⛵️ URLNavigator provides an elegant way to navigate through view controllers by URLs. URL patterns can be mapped by using `URLNavigator.register(_:_:)` function.
+`URLNavigator`可用于映射具有2种类型的URL工厂模式：`NavigatorFactoryViewController`和`NavigatorFactoryOpenHandler`
+`NavigatorFactoryViewController`是返回初始化视图的闭包，`NavigatorFactoryOpenHandler`是一种可以执行的闭包。初始化视图和可执行闭包都会收到URL和占位符值。
 
-URLNavigator can be used for mapping URL patterns with 2 kind of types: `URLNavigable` and `URLOpenHandler`. `URLNavigable` is a type which defines an custom initializer and `URLOpenHandler` is a closure which can be executed. Both an initializer and a closure receive an URL and placeholder values.
+## 开始使用
 
+#### 1. URL匹配模式
 
-## Getting Started
+URL模式可以包含占位符。占位符将被URL中的匹配值替换。使用 `<` 和 `>` 来标记占位符。占位符可以有类型: `string`(默认), `int`, `float`, 和 `path`.
 
-#### 1. Understanding URL Patterns
+例如, `navigator://user/<int:id>` 与以下匹配:
 
-URL patterns can contain placeholders. Placeholders will be replaced with matching values from URLs. Use `<` and `>` to make placeholders. Placeholders can have types: `string`(default), `int`, `float`, and `path`.
+* `navigator://user/123`
+* `navigator://user/87`
 
-For example, `myapp://user/<int:id>` matches with:
+但是不会匹配以下几点:
 
-* `myapp://user/123`
-* `myapp://user/87`
+* `navigator://user/routes` (非 int 类型)
+* `navigator://user/routes/posts` ( url 结构不同)
+* `/user/routes` (缺少 scheme)
 
-But it doesn't match with:
+#### 2. 映射URL
 
-* `myapp://user/devxoul` (expected int)
-* `myapp://user/123/posts` (different url structure)
-* `/user/devxoul` (missing scheme)
-
-#### 2. Mapping View Controllers and URL Open Handlers
-
-URLNavigator allows to map view controllers ans URL open handlers with URL patterns. Here's an example of mapping URL patterns with view controllers and a closure. Each closures has three parameters: `url`, `values` and `context`.
-
-* `url` is an URL that is passed from `push()` and `present()`.
-* `values` is a dictionary that contains URL placeholder keys and values.
-* `context` is a dictionary which contains extra values passed from `push()`, `present()` or `open()`.
+为`Navigator`创建一个`extension`文件，并遵循`NavigatorRegistering`协议，通常情况下您不需要主动调用`registerAllURLs`，当第一次调用解析函数时会强制一次性初始化解析器注册表
 
 ```swift
-let navigator = Navigator()
-
-// register view controllers
-navigator.register("myapp://user/<int:id>") { url, values, context in
-  guard let userID = values["id"] as? Int else { return nil }
-  return UserViewController(userID: userID)
-}
-navigator.register("myapp://post/<title>") { url, values, context in
-  return storyboard.instantiateViewController(withIdentifier: "PostViewController")
-}
-
-// register url open handlers
-navigator.handle("myapp://alert") { url, values, context in
-  let title = url.queryParameters["title"]
-  let message = url.queryParameters["message"]
-  presentAlertController(title: title, message: message)
-  return true
-}
-```
-
-#### 3. Pushing, Presenting and Opening URLs
-
-URLNavigator can push and present view controllers and execute closures with URLs.
-
-Provide the `from` parameter to `push()` to specify the navigation controller which the new view controller will be pushed. Similarly, provide the `from` parameter to `present()` to specify the view controller which the new view controller will be presented. If the `nil` is passed, which is a default value, current application's top most view controller will be used to push or present view controllers.
-
-`present()` takes an extra parameter: `wrap`. If a `UINavigationController` class is specified, the new view controller will be wrapped with the class. Default value is `nil`.
-
-```swift
-Navigator.push("myapp://user/123")
-Navigator.present("myapp://post/54321", wrap: UINavigationController.self)
-
-Navigator.open("myapp://alert?title=Hello&message=World")
-```
-
-
-## Installation
-
-- **For iOS 8+ projects** with [CocoaPods](https://cocoapods.org):
-
-    ```ruby
-    pod 'URLNavigator'
-    ```
-
-- **For iOS 8+ projects** with [Carthage](https://github.com/Carthage/Carthage):
-
-    ```
-    github "devxoul/URLNavigator"
-    ```
-
-
-## Example
-
-You can find an example app [here](https://github.com/devxoul/URLNavigator/tree/master/Example).
-
-1. Build and install the example app.
-2. Open Safari app
-3. Enter `navigator://user/devxoul` in the URL bar.
-4. The example app will be launched.
-
-
-## Tips and Tricks
-
-#### Where to initialize a Navigator instance
-
-1. Define as a global constant:
-
-    ```swift
-    let navigator = Navigator()
-
-    class AppDelegate: UIResponder, UIApplicationDelegate {
-      // ...
-    }
-    ```
-
-2. Register to an IoC container:
-
-    ```swift
-    container.register(NavigatorType.self) { _ in Navigator() } // Swinject
-    let navigator = container.resolve(NavigatorType.self)!
-    ```
-
-3. Inject dependency from a composition root.
-
-
-#### Where to Map URLs
-
-I'd prefer using separated URL map file.
-
-```swift
-struct URLNavigationMap {
-  static func initialize(navigator: NavigatorType) {
-    navigator.register("myapp://user/<int:id>") { ... }
-    navigator.register("myapp://post/<title>") { ... }
-    navigator.handle("myapp://alert") { ... }
-  }
-}
-```
-
-Then call `initialize()` at `AppDelegate`'s `application:didFinishLaunchingWithOptions:`.
-
-```swift
-@UIApplicationMain
-final class AppDelegate: UIResponder, UIApplicationDelegate {
-  func application(
-    _ application: UIApplication,
-    didFinishLaunchingWithOptions launchOptions: [UIApplicationLaunchOptionsKey: Any]?
-  ) -> Bool {
-    // Navigator
-    URLNavigationMap.initialize(navigator: navigator)
+extension Navigator: NavigatorRegistering {
     
-    // Do something else...
-  }
+    public static func registerAllURLs() {
+        
+        main.register("navigator://user/<int:id>") { url, values, context in
+            return UIViewController()
+        }
+        
+        main.register("navigator://main/<int:id>") { url, values, context in
+            return UIViewController()
+        }
+        
+        main.register("navigator://mall/<int:id>") { url, values, context in
+            return UIViewController()
+        }
+        
+        main.handle("navigator://pay/<path>") { url, values, context in
+            print(values)
+            return true
+        }
+    }
 }
 ```
 
+#### 3. 解析构建`UIViewController`和`open(url:)`方法
 
-#### Implementing AppDelegate Launch Option URL
-
-It's available to open your app with URLs if custom schemes are registered. In order to navigate to view controllers with URLs, you'll have to implement `application:didFinishLaunchingWithOptions:` method.
+```swift
+        let vc = navigator.build(for: "navigator://user/123")
+```
 
 ```swift
 func application(
@@ -178,26 +76,11 @@ func application(
 
 ```
 
-
-#### Implementing AppDelegate Open URL Method
-
-You'll might want to implement custom URL open handler. Here's an example of using URLNavigator with other URL open handlers.
-
 ```swift
 func application(_ application: UIApplication, open url: URL, sourceApplication: String?, annotation: Any) -> Bool {
-  // If you're using Facebook SDK
-  let fb = FBSDKApplicationDelegate.sharedInstance()
-  if fb.application(application, open: url, sourceApplication: sourceApplication, annotation: annotation) {
-    return true
-  }
 
   // URLNavigator Handler
   if navigator.open(url) {
-    return true
-  }
-
-  // URLNavigator View Controller
-  if navigator.present(url, wrap: UINavigationController.self) != nil {
     return true
   }
 
@@ -205,18 +88,18 @@ func application(_ application: UIApplication, open url: URL, sourceApplication:
 }
 ```
 
-
-#### Passing Extra Values when Pushing, Presenting and Opening
+#### 传递附加参数
 
 ```swift
-let context: [AnyHashable: Any] = [
-  "fromViewController": self
-]
-Navigator.push("myapp://user/10", context: context)
-Navigator.present("myapp://user/10", context: context)
-Navigator.open("myapp://alert?title=Hi", context: context)
+    let context: [AnyHashable: Any] = [
+      "fromViewController": self
+    ]
+    navigator.build("navigator://user/10", context: context)
+    navigator.open("navigator://alert?title=Hi", context: context)
 ```
 
+
+## Installation
 
 ## License
 

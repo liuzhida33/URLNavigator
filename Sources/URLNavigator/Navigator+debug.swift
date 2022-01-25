@@ -2,11 +2,6 @@ import Foundation
 
 public extension Navigator {
     
-    static func debug(
-    ) -> Navigator.Type {
-        Navigator.self
-    }
-    
     func debug(
         log: @escaping (String) -> Void = { print($0) },
         dumpPath: @escaping (Any) -> Void = { dump($0) }

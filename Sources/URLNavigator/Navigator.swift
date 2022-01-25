@@ -23,6 +23,30 @@ public struct Navigator {
     
     public static var main: Navigator = Navigator(dataSource: .init(matcher: URLMatcher()))
     
+    public static func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
+        main.register(pattern, factory)
+    }
+    
+    public static func handle(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) {
+        main.handle(pattern, factory)
+    }
+    
+    public static func build(for url: URLConvertible, context: Any? = nil) -> UIViewController? {
+        main.build(for: url, context: context)
+    }
+    
+    public static func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
+        main.open(url, context: context)
+    }
+    
+    public static func viewControllerFactories() -> [URLPattern: NavigatorFactoryViewController] {
+        main.viewControllerFactories()
+    }
+    
+    public static func handlerFactories() -> [URLPattern: NavigatorFactoryOpenHandler] {
+        main.handlerFactories()
+    }
+    
     public func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
         _register(pattern, factory)
     }

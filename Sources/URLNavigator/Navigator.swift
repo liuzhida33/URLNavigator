@@ -15,7 +15,7 @@ extension Navigating {
 }
 
 public typealias URLPattern = String
-public typealias NavigatorFactoryViewController = (_ url: URLConvertible, _ values: [String: Any], _ context: Any?) -> UIViewController?
+public typealias NavigatorFactoryViewController = (_ url: URLConvertible, _ values: [String: Any], _ context: Any?) -> Result<UIViewController, Error>
 public typealias NavigatorFactoryOpenHandler = (_ url: URLConvertible, _ values: [String: Any], _ context: Any?) -> Bool
 public typealias NavigatorOpenHandler = () -> Bool
 
@@ -31,7 +31,7 @@ public struct Navigator {
         main.handle(pattern, factory)
     }
     
-    public static func build(for url: URLConvertible, context: Any? = nil) -> UIViewController? {
+    public static func build(for url: URLConvertible, context: Any? = nil) -> Result<UIViewController, Error> {
         main.build(for: url, context: context)
     }
     
@@ -55,7 +55,7 @@ public struct Navigator {
         _handle(pattern, factory)
     }
     
-    public func build(for url: URLConvertible, context: Any? = nil) -> UIViewController? {
+    public func build(for url: URLConvertible, context: Any? = nil) -> Result<UIViewController, Error> {
         _build(url, context)
     }
     
@@ -73,7 +73,7 @@ public struct Navigator {
     
     private let _register: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void
     private let _handle: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void
-    private let _build: (_ url: URLConvertible, _ context: Any?) -> UIViewController?
+    private let _build: (_ url: URLConvertible, _ context: Any?) -> Result<UIViewController, Error>
     private let _open: (_ url: URLConvertible, _ context: Any?) -> Bool
     private let _viewControllerFactories: () -> [URLPattern: NavigatorFactoryViewController]
     private let _handlerFactories: () -> [URLPattern: NavigatorFactoryOpenHandler]
@@ -81,7 +81,7 @@ public struct Navigator {
     init(
         register: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void,
         handle: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void,
-        build: @escaping (_ url: URLConvertible, _ context: Any?) -> UIViewController?,
+        build: @escaping (_ url: URLConvertible, _ context: Any?) -> Result<UIViewController, Error>,
         open: @escaping (_ url: URLConvertible, _ context: Any?) -> Bool,
         viewControllerFactories: @escaping () -> [URLPattern: NavigatorFactoryViewController],
         handlerFactories: @escaping () -> [URLPattern: NavigatorFactoryOpenHandler]
@@ -141,11 +141,11 @@ public extension Navigator {
             handlerFactories[pattern] = factory
         }
         
-        fileprivate func build(for url: URLConvertible, context: Any?) -> UIViewController? {
+        fileprivate func build(for url: URLConvertible, context: Any?) -> Result<UIViewController, Error> {
             registrationCheck()
             let urlPatterns = Array(viewControllerFactories.keys)
-            guard let match = matcher.match(url, from: urlPatterns) else { return nil }
-            guard let factory = viewControllerFactories[match.pattern] else { return nil }
+            guard let match = matcher.match(url, from: urlPatterns) else { return .failure(NavigatorError.notMatch) }
+            guard let factory = viewControllerFactories[match.pattern] else { return .failure(NavigatorError.notFactory) }
             return factory(url, match.values, context)
         }
         

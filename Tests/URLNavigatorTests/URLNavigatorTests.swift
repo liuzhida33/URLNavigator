@@ -34,7 +34,7 @@ extension Navigator: NavigatorRegistering {
     
     public static func registerAllURLs() {
         register("navigator://user/123") { url, values, context in
-            UIViewController()
+                .success(UIViewController())
         }
         
 //        main.debug().register("navigator://user/<int:id>") { url, values, context in
@@ -42,16 +42,16 @@ extension Navigator: NavigatorRegistering {
 //        }
         
         main.register("navigator://main/<int:id>") { url, values, context in
-            return UIViewController()
+                .success(UIViewController())
         }
         
         main.register("navigator://mall/<int:id>") { url, values, context in
-            return UIViewController()
+                .success(UIViewController())
         }
         
         main.register("navigator://inspection/<path>") { url, values, context in
             print(values)
-            return UIViewController()
+            return .success(UIViewController())
         }
         
 //        main.register("navigator://inspection") { url, values, context in

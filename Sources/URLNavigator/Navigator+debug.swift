@@ -10,33 +10,33 @@ public extension Navigator {
             register: { pattern, factory in
                 defer {
                     log("⚡️ Sent register(\(pattern), \(String(describing: factory))).\n♻️ viewControllerFactories:")
-                    dumpPath(Array(viewControllerFactories().keys))
+                    dumpPath(viewControllerPatterns())
                 }
                 register(pattern, factory)
             },
             handle: { pattern, factory in
                 defer {
                     log("⚡️ Sent handle(\(pattern), \(String(describing: factory))).\n♻️ handlerFactories:")
-                    dumpPath(Array(handlerFactories().keys))
+                    dumpPath(handlerPatterns())
                 }
                 handle(pattern, factory)
             },
             build: { url, context in
                 defer {
-                    log("⚡️ Sent build(for: \(url), context: \(String(describing: context))).\n♻️ viewControllerFactories:")
-                    dumpPath(Array(viewControllerFactories().keys))
+                    log("⚡️ Sent build(for: \(dump(url)), context: \(String(describing: context))).\n♻️ viewControllerFactories:")
+                    dumpPath(viewControllerPatterns())
                 }
                 return build(for: url, context: context)
             },
             open: { url, context in
                 defer {
-                    log("⚡️ Sent open(\(url), \(String(describing: context))).\n♻️ handlerFactories:")
-                    dumpPath(Array(handlerFactories().keys))
+                    log("⚡️ Sent open(\(dump(url)), \(String(describing: context))).\n♻️ handlerFactories:")
+                    dumpPath(handlerPatterns())
                 }
                 return open(url, context: context)
             },
-            viewControllerFactories: viewControllerFactories,
-            handlerFactories: handlerFactories
+            viewControllerPatterns: viewControllerPatterns,
+            handlerPatterns: handlerPatterns
         )
     }
 }

@@ -39,12 +39,12 @@ public struct Navigator {
         main.open(url, context: context)
     }
     
-    public static func viewControllerFactories() -> [URLPattern: NavigatorFactoryViewController] {
-        main.viewControllerFactories()
+    public static func viewControllerPatterns() -> [URLPattern] {
+        main.viewControllerPatterns()
     }
     
-    public static func handlerFactories() -> [URLPattern: NavigatorFactoryOpenHandler] {
-        main.handlerFactories()
+    public static func handlerPatterns() -> [URLPattern] {
+        main.handlerPatterns()
     }
     
     public func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
@@ -63,35 +63,35 @@ public struct Navigator {
         _open(url, context)
     }
     
-    public func viewControllerFactories() -> [URLPattern: NavigatorFactoryViewController] {
-        _viewControllerFactories()
+    public func viewControllerPatterns() -> [URLPattern] {
+        _viewControllerPatterns()
     }
     
-    public func handlerFactories() -> [URLPattern: NavigatorFactoryOpenHandler] {
-        _handlerFactories()
+    public func handlerPatterns() -> [URLPattern] {
+        _handlerPatterns()
     }
     
     private let _register: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void
     private let _handle: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void
     private let _build: (_ url: URLConvertible, _ context: Any?) -> Result<UIViewController, Error>
     private let _open: (_ url: URLConvertible, _ context: Any?) -> Bool
-    private let _viewControllerFactories: () -> [URLPattern: NavigatorFactoryViewController]
-    private let _handlerFactories: () -> [URLPattern: NavigatorFactoryOpenHandler]
+    private let _viewControllerPatterns: () -> [URLPattern]
+    private let _handlerPatterns: () -> [URLPattern]
     
     init(
         register: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void,
         handle: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void,
         build: @escaping (_ url: URLConvertible, _ context: Any?) -> Result<UIViewController, Error>,
         open: @escaping (_ url: URLConvertible, _ context: Any?) -> Bool,
-        viewControllerFactories: @escaping () -> [URLPattern: NavigatorFactoryViewController],
-        handlerFactories: @escaping () -> [URLPattern: NavigatorFactoryOpenHandler]
+        viewControllerPatterns: @escaping () -> [URLPattern],
+        handlerPatterns: @escaping () -> [URLPattern]
     ) {
         self._register = register
         self._handle = handle
         self._build = build
         self._open = open
-        self._viewControllerFactories = viewControllerFactories
-        self._handlerFactories = handlerFactories
+        self._viewControllerPatterns = viewControllerPatterns
+        self._handlerPatterns = handlerPatterns
     }
 }
 
@@ -111,11 +111,11 @@ public extension Navigator {
             open: { url, context in
                 dataSource.open(url, context: context)
             },
-            viewControllerFactories: {
-                dataSource.viewControllerFactories
+            viewControllerPatterns: {
+                dataSource.viewControllerFactories.keys
             },
-            handlerFactories: {
-                dataSource.handlerFactories
+            handlerPatterns: {
+                dataSource.handlerFactories.keys
             }
         )
     }
@@ -123,11 +123,35 @@ public extension Navigator {
 
 public extension Navigator {
     
+    struct Registration<Key: Hashable, Value> {
+        var keys: Array<Key> = []
+        var values: Dictionary<Key, Value> = [:]
+        
+        init() {}
+        
+        subscript(key: Key) -> Value? {
+            get {
+                return self.values[key]
+            }
+            set {
+                if let newValue = newValue {
+                    let oldValue = self.values.updateValue(newValue, forKey: key)
+                    if oldValue == nil {
+                        self.keys.append(key)
+                    }
+                } else {
+                    self.values.removeValue(forKey: key)
+                    self.keys.removeAll(where: { $0 == key })
+                }
+            }
+        }
+    }
+    
     final class Datasource {
         
         public let matcher: URLMatcher
-        public private(set) var viewControllerFactories: [URLPattern: NavigatorFactoryViewController] = [:]
-        public private(set) var handlerFactories: [URLPattern: NavigatorFactoryOpenHandler] = [:]
+        public private(set) var viewControllerFactories: Registration<URLPattern, NavigatorFactoryViewController> = Registration()
+        public private(set) var handlerFactories: Registration<URLPattern, NavigatorFactoryOpenHandler> = Registration()
         
         public init(matcher: URLMatcher) {
             self.matcher = matcher
@@ -143,16 +167,18 @@ public extension Navigator {
         
         fileprivate func build(for url: URLConvertible, context: Any?) -> Result<UIViewController, Error> {
             registrationCheck()
-            let urlPatterns = Array(viewControllerFactories.keys)
-            guard let match = matcher.match(url, from: urlPatterns) else { return .failure(NavigatorError.notMatch) }
+            let urlPatterns = viewControllerFactories.keys
+            // 匹配采用“倒置”原则，即重复注册相同规则下优先匹配后者
+            guard let match = matcher.match(url, from: urlPatterns.reversed()) else { return .failure(NavigatorError.notMatch) }
             guard let factory = viewControllerFactories[match.pattern] else { return .failure(NavigatorError.notFactory) }
             return factory(url, match.values, context)
         }
         
         fileprivate func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
             registrationCheck()
-            let urlPatterns = Array(handlerFactories.keys)
-            guard let match = matcher.match(url, from: urlPatterns) else { return false }
+            let urlPatterns = handlerFactories.keys
+            // 匹配采用“倒置”原则，即重复注册相同规则下优先匹配后者
+            guard let match = matcher.match(url, from: urlPatterns.reversed()) else { return false }
             guard let handler = handlerFactories[match.pattern] else { return false }
             return handler(url, match.values, context)
         }

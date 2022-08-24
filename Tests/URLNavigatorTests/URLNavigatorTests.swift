@@ -19,7 +19,7 @@ final class URLNavigatorTests: XCTestCase, Navigating {
     }
     
     func testBuildWithPath() throws {
-        let result1 = navigator.debug().build(for: "navigator://inspection/list", context: ["username": "zhangsan"])
+        let result1 = navigator.debug().build(for: "navigator://inspection/list/longPath/web/url", context: ["username": "zhangsan"])
         switch result1 {
         case .success(let vc):
             XCTAssert(true, vc.description)
@@ -45,7 +45,10 @@ final class URLNavigatorTests: XCTestCase, Navigating {
     }
     
     func testHttps() throws {
-        
+        let flag = navigator.debug().open("https://shop.zlj365.com/pages/score/score-list?action=redirect")
+        XCTAssertTrue(flag)
+        let flag2 = navigator.debug().open("https://shop.zlj365.com")
+        XCTAssertTrue(flag2)
     }
     
     func testSystem() throws {
@@ -61,8 +64,10 @@ extension Navigator: NavigatorRegistering {
                 .success(UIViewController())
         }
         
-        register("https://<path>") { url, values, context in
-                .success(UIViewController())
+        handle("https://<appid>/<path:path>") { url, values, context in
+                print(values)
+            print(url.queryParameters)
+            return true
         }
         
         main.register("navigator://user/<int:id>") { url, values, context in
@@ -78,16 +83,16 @@ extension Navigator: NavigatorRegistering {
             return .success(UIViewController())
         }
         
-        main.register("navigator://inspection/<path>") { url, values, context in
-            print(values)
+        main.register("navigator://inspection/<path:path>") { url, values, context in
+            print("✅", values)
             switch values["path"] as! String {
             case "list": return .success(UIViewController())
-            default: return .failure(NavigatorError.notMatch)
+            default: return .success(UIViewController())
             }
         }
         
         main.register("navigator://inspection/<int:id>") { url, values, context in
-            print(values)
+            print("❌", values)
             return .success(UIViewController())
         }
         

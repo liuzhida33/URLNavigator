@@ -35,6 +35,7 @@ public struct Navigator {
         main.build(for: url, context: context)
     }
     
+    @discardableResult
     public static func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
         main.open(url, context: context)
     }
@@ -59,6 +60,7 @@ public struct Navigator {
         _build(url, context)
     }
     
+    @discardableResult
     public func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
         _open(url, context)
     }

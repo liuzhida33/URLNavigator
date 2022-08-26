@@ -77,7 +77,6 @@ public final class URLMatcher {
     private func matchStringPathComponent(at index: Int, from stringPathComponents: [String], with candidatePathComponents: [URLPathComponent]) -> URLPathComponentMatchRessult {
         let stringPathComponent = stringPathComponents[index]
         let urlPathComponent = candidatePathComponents[index]
-        print("⚜️", stringPathComponent, urlPathComponent, stringPathComponents, candidatePathComponents)
         switch urlPathComponent {
         case let .plain(value):
             guard stringPathComponent == value else { return .notMatches }

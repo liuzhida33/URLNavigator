@@ -179,8 +179,8 @@ public extension Navigator {
         fileprivate func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
             registrationCheck()
             let urlPatterns = handlerFactories.keys
-            // 匹配采用“倒置”原则，即重复注册相同规则下优先匹配后者
-            guard let match = matcher.match(url, from: urlPatterns.reversed()) else { return false }
+            // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配先者
+            guard let match = matcher.match(url, from: urlPatterns) else { return false }
             guard let handler = handlerFactories[match.pattern] else { return false }
             return handler(url, match.values, context)
         }

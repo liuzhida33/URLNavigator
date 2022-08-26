@@ -19,7 +19,7 @@ final class URLNavigatorTests: XCTestCase, Navigating {
     }
     
     func testBuildWithPath() throws {
-        let result1 = navigator.debug().build(for: "navigator://inspection/list/longPath/web/url", context: ["username": "zhangsan"])
+        let result1 = navigator.build(for: "navigator://inspection/test/list/error", context: ["username": "zhangsan"])
         switch result1 {
         case .success(let vc):
             XCTAssert(true, vc.description)
@@ -27,7 +27,7 @@ final class URLNavigatorTests: XCTestCase, Navigating {
             XCTAssertTrue(false, error.localizedDescription)
         }
         
-        let result2 = navigator.build(for: "navigator://inspection/123", context: ["username": "zhangsan"])
+        let result2 = navigator.build(for: "navigator://inspection", context: ["username": "zhangsan"])
         switch result2 {
         case .success(let vc):
             XCTAssert(true, vc.description)
@@ -83,11 +83,21 @@ extension Navigator: NavigatorRegistering {
             return .success(UIViewController())
         }
         
-        main.register("navigator://inspection/<path:path>") { url, values, context in
+        main.register("navigator://inspection") { url, values, context in
+            print("✅", url)
+            return .success(UIViewController())
+        }
+        
+        main.register("navigator://inspection/test/<path:path>") { url, values, context in
             print("✅", values)
-            switch values["path"] as! String {
-            case "list": return .success(UIViewController())
-            default: return .success(UIViewController())
+            if let path = values["path"] as? String {
+                switch path {
+                case "list": return .success(UIViewController())
+                case "list/error": return .success(UIViewController())
+                default: return .failure(NavigatorError.notMatch)
+                }
+            } else {
+                return .success(UIViewController())
             }
         }
         
@@ -95,11 +105,6 @@ extension Navigator: NavigatorRegistering {
             print("❌", values)
             return .success(UIViewController())
         }
-        
-//        main.register("navigator://inspection") { url, values, context in
-//            print(context)
-//            return UIViewController()
-//        }
         
         main.handle("navigator://pay/<path>") { url, values, context in
             print(values)

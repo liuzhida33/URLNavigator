@@ -23,14 +23,18 @@ public final class URLMatcher {
         let scheme = url.urlValue?.scheme
         let stringPathComponents = stringPathComponents(from: url)
         
+        var results = [URLMatchResult]()
+        
         for candidate in candidates {
             guard scheme == candidate.urlValue?.scheme else { continue }
             if let result = match(stringPathComponents, with: candidate) {
-                return result
+                results.append(result)
             }
         }
         
-        return nil
+        return results.max {
+               self.numberOfPlainPathComponent(in: $0.pattern) < self.numberOfPlainPathComponent(in: $1.pattern)
+            }
     }
     
     private func match(_ stringPathComponents: [String], with candidate: URLPattern) -> URLMatchResult? {
@@ -67,13 +71,13 @@ public final class URLMatcher {
                 return false
             }
         }
-        return hasSameNumberOfComponents || containsPathPlaceholderComponent
+        return hasSameNumberOfComponents || (containsPathPlaceholderComponent && stringPathComponents.count > candidatePathComponents.count)
     }
     
     private func matchStringPathComponent(at index: Int, from stringPathComponents: [String], with candidatePathComponents: [URLPathComponent]) -> URLPathComponentMatchRessult {
         let stringPathComponent = stringPathComponents[index]
         let urlPathComponent = candidatePathComponents[index]
-        
+        print("⚜️", stringPathComponent, urlPathComponent, stringPathComponents, candidatePathComponents)
         switch urlPathComponent {
         case let .plain(value):
             guard stringPathComponent == value else { return .notMatches }
@@ -112,6 +116,13 @@ public final class URLMatcher {
         guard let regex = try? NSRegularExpression(pattern: pattern, options: []) else { return string }
         return regex.stringByReplacingMatches(in: string, options: [], range: NSMakeRange(0, string.count), withTemplate: repl)
     }
+    
+    private func numberOfPlainPathComponent(in pattern: URLPattern) -> Int {
+        return self.pathComponents(from: pattern).lazy.filter {
+          guard case .plain = $0 else { return false }
+          return true
+        }.count
+      }
     
     private static let defaultURLValueConverters: [String: URLValueConverter] = [
         "string": { pathComponents, index in pathComponents[index] },

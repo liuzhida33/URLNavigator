@@ -170,8 +170,8 @@ public extension Navigator {
         fileprivate func build(for url: URLConvertible, context: Any?) -> Result<UIViewController, Error> {
             registrationCheck()
             let urlPatterns = viewControllerFactories.keys
-            // 匹配采用“倒置”原则，即重复注册相同规则下优先匹配后者
-            guard let match = matcher.match(url, from: urlPatterns.reversed()) else { return .failure(NavigatorError.notMatch) }
+            // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配先者
+            guard let match = matcher.match(url, from: urlPatterns) else { return .failure(NavigatorError.notMatch) }
             guard let factory = viewControllerFactories[match.pattern] else { return .failure(NavigatorError.notFactory) }
             return factory(url, match.values, context)
         }

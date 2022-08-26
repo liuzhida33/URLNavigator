@@ -84,7 +84,12 @@ extension Navigator: NavigatorRegistering {
         }
         
         main.register("navigator://inspection") { url, values, context in
-            print("✅", url)
+            print("✅1", url)
+            return .success(UIViewController())
+        }
+        
+        main.register("navigator://inspection") { url, values, context in
+            print("✅2", url)
             return .success(UIViewController())
         }
         

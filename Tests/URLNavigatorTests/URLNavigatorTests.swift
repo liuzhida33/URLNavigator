@@ -37,11 +37,11 @@ final class URLNavigatorTests: XCTestCase, Navigating {
     }
     
     func testHandle() throws {
-        let flag = navigator.debug().open("navigator://pay/wechat", context: ["errCode": 0, "errMsg": "支付成功"])
+        let flag = navigator.open("navigator://646F5B6/?title=%E7%89%A9%E4%B8%9A%E7%BC%B4%E8%B4%B9", context: ["errCode": 0, "errMsg": "支付成功"])
         XCTAssertTrue(flag)
         
-        let flag2 = navigator.debug().open("navigator://share/wechat", context: ["errCode": 0, "errMsg": "分享成功"])
-        XCTAssertFalse(flag2)
+        let flag2 = navigator.open("navigator://646F5B6/index/index", context: ["errCode": 0, "errMsg": "分享成功"])
+        XCTAssertTrue(flag2)
     }
     
     func testHttps() throws {
@@ -52,7 +52,12 @@ final class URLNavigatorTests: XCTestCase, Navigating {
     }
     
     func testSystem() throws {
-        let flag = navigator.debug().open("tel://15142101897")
+        let flag = navigator.debug().open("tel://10086")
+        XCTAssertTrue(flag)
+    }
+    
+    func testRepeat() throws {
+        let flag = navigator.debug().open("navigator://menu/question")
         XCTAssertTrue(flag)
     }
 }
@@ -63,36 +68,36 @@ extension Navigator: NavigatorRegistering {
         register("navigator://user/123") { url, values, context in
                 .success(UIViewController())
         }
-        
+
         handle("https://<appid>/<path:path>") { url, values, context in
                 print(values)
             print(url.queryParameters)
             return true
         }
-        
+
         main.register("navigator://user/<int:id>") { url, values, context in
             return .success(UIViewController())
         }
-        
+
         main.register("navigator://main/<int:id>") { url, values, context in
                 .success(UIViewController())
         }
-        
+
         main.register("navigator://mall/<int:id>/<int:pid>") { url, values, context in
             print(values)
             return .success(UIViewController())
         }
-        
+
         main.register("navigator://inspection") { url, values, context in
             print("✅1", url)
             return .success(UIViewController())
         }
-        
+
         main.register("navigator://inspection") { url, values, context in
             print("✅2", url)
             return .success(UIViewController())
         }
-        
+
         main.register("navigator://inspection/test/<path:path>") { url, values, context in
             print("✅", values)
             if let path = values["path"] as? String {
@@ -105,19 +110,44 @@ extension Navigator: NavigatorRegistering {
                 return .success(UIViewController())
             }
         }
-        
+
         main.register("navigator://inspection/<int:id>") { url, values, context in
             print("❌", values)
             return .success(UIViewController())
         }
-        
+
         main.handle("navigator://pay/<path>") { url, values, context in
             print(values)
             return true
         }
-        
+
         handle("tel://<int:phone>") { url, values, context in
             print(url)
+            return true
+        }
+        
+        handle("navigator://<appId>/<*:_>") { url, values, context in
+            print("💛: \(values)")
+            return true
+        }
+        
+        handle("navigator://<appId>/<path:path>") { url, values, context in
+            print("💙: \(values)")
+            return true
+        }
+
+        handle("navigator://<appId>") { url, values, context in
+            print("❤️: \(values)")
+            return true
+        }
+        
+        handle("navigator://menu/<path:>") { url, values, context in
+            print("❤️")
+            return true
+        }
+
+        handle("navigator://menu/question") { url, values, context in
+            print("💚")
             return true
         }
     }

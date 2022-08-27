@@ -71,7 +71,22 @@ public final class URLMatcher {
                 return false
             }
         }
-        return hasSameNumberOfComponents || (containsPathPlaceholderComponent && stringPathComponents.count > candidatePathComponents.count)
+        let containsWildcardPlaceholderComponent = candidatePathComponents.contains {
+            if case let .placeholder(type, _) = $0, type == "*" {
+                return true
+            } else {
+                return false
+            }
+        }
+        let containsWildcardPlaceholderComponentCount = candidatePathComponents.lazy.filter {
+            if case let .placeholder(type, _) = $0, type == "*" {
+                return false
+            } else {
+                return true
+            }
+        }.count
+        
+        return hasSameNumberOfComponents || (containsPathPlaceholderComponent && stringPathComponents.count >= candidatePathComponents.count) || (containsWildcardPlaceholderComponent && stringPathComponents.count >= containsWildcardPlaceholderComponentCount)
     }
     
     private func matchStringPathComponent(at index: Int, from stringPathComponents: [String], with candidatePathComponents: [URLPathComponent]) -> URLPathComponentMatchRessult {
@@ -118,16 +133,17 @@ public final class URLMatcher {
     
     private func numberOfPlainPathComponent(in pattern: URLPattern) -> Int {
         return self.pathComponents(from: pattern).lazy.filter {
-          guard case .plain = $0 else { return false }
-          return true
+            guard case .plain = $0 else { return false }
+            return true
         }.count
-      }
+    }
     
     private static let defaultURLValueConverters: [String: URLValueConverter] = [
         "string": { pathComponents, index in pathComponents[index] },
         "int": { pathComponents, index in Int(pathComponents[index]) },
         "float": { pathComponents, index in Float(pathComponents[index]) },
-        "path": { pathComponents, index in pathComponents[index..<pathComponents.count].joined(separator: "/") }
+        "path": { pathComponents, index in pathComponents[index..<pathComponents.count].joined(separator: "/") },
+        "*": { pathComponents, index in pathComponents[index..<pathComponents.count].joined(separator: "/") }
     ]
 }
 

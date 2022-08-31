@@ -10,7 +10,7 @@ public protocol Navigating {
 
 extension Navigating {
     public var navigator: Navigator {
-        Navigator.main
+        Navigator.root
     }
 }
 
@@ -19,9 +19,25 @@ public typealias NavigatorFactoryViewController = (_ url: URLConvertible, _ valu
 public typealias NavigatorFactoryOpenHandler = (_ url: URLConvertible, _ values: [String: Any], _ context: Any?) -> Bool
 public typealias NavigatorOpenHandler = () -> Bool
 
-public struct Navigator {
+public final class Navigator {
     
-    public static var main: Navigator = Navigator(dataSource: .init(matcher: URLMatcher()))
+    public static var root: Navigator = main
+    
+    public static let main: Navigator = Navigator()
+    
+    public init(child: Navigator? = nil, matcher: URLMatcher = URLMatcher(), plugins: [PluginType] = []) {
+        self.matcher = matcher
+        self.plugins = plugins
+        if let child = child {
+            self.childContainers.append(child)
+        }
+    }
+    
+    public func add(child: Navigator) {
+        self.childContainers.append(child)
+    }
+    
+    // MARK: - Action
     
     public static func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
         main.register(pattern, factory)
@@ -40,90 +56,92 @@ public struct Navigator {
         main.open(url, context: context)
     }
     
-    public static func viewControllerPatterns() -> [URLPattern] {
-        main.viewControllerPatterns()
+    public final func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
+        viewControllerFactories[pattern] = factory
     }
     
-    public static func handlerPatterns() -> [URLPattern] {
-        main.handlerPatterns()
+    public final func handle(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) {
+        handlerFactories[pattern] = factory
     }
     
-    public func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
-        _register(pattern, factory)
-    }
-    
-    public func handle(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) {
-        _handle(pattern, factory)
-    }
-    
-    public func build(for url: URLConvertible, context: Any? = nil) -> Result<UIViewController, Error> {
-        _build(url, context)
+    public final func build(for url: URLConvertible, context: Any? = nil) -> Result<UIViewController, Error> {
+        registrationCheck()
+        // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配前者
+        if let (matchResult, factory) = lookupViewController(for: url, context: context) {
+            
+            let preparedFactory = prepare(factory, matchResult: matchResult)
+            
+            return preparedFactory(url, matchResult.values, context)
+        }
+        return .failure(NavigatorError.notMatch)
     }
     
     @discardableResult
-    public func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
-        _open(url, context)
+    public final func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
+        registrationCheck()
+        // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配前者
+        if let (matchResult, factory) = lookupOpenHandler(for: url, context: context) {
+            
+            let preparedFactory = prepare(factory, matchResult: matchResult)
+            
+            return preparedFactory(url, matchResult.values, context)
+        }
+        
+        return false
     }
     
-    public func viewControllerPatterns() -> [URLPattern] {
-        _viewControllerPatterns()
-    }
+    // MARK: - Internal
     
-    public func handlerPatterns() -> [URLPattern] {
-        _handlerPatterns()
-    }
-    
-    private let _register: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void
-    private let _handle: (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void
-    private let _build: (_ url: URLConvertible, _ context: Any?) -> Result<UIViewController, Error>
-    private let _open: (_ url: URLConvertible, _ context: Any?) -> Bool
-    private let _viewControllerPatterns: () -> [URLPattern]
-    private let _handlerPatterns: () -> [URLPattern]
-    
-    init(
-        register: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) -> Void,
-        handle: @escaping (_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) -> Void,
-        build: @escaping (_ url: URLConvertible, _ context: Any?) -> Result<UIViewController, Error>,
-        open: @escaping (_ url: URLConvertible, _ context: Any?) -> Bool,
-        viewControllerPatterns: @escaping () -> [URLPattern],
-        handlerPatterns: @escaping () -> [URLPattern]
-    ) {
-        self._register = register
-        self._handle = handle
-        self._build = build
-        self._open = open
-        self._viewControllerPatterns = viewControllerPatterns
-        self._handlerPatterns = handlerPatterns
-    }
-}
-
-public extension Navigator {
-    
-    init(dataSource: Navigator.Datasource) {
-        self.init(
-            register: { pattern, factory in
-                dataSource.register(pattern, factory)
-            },
-            handle: { pattern, factory in
-                dataSource.handle(pattern, factory)
-            },
-            build: { url, context in
-                dataSource.build(for: url, context: context)
-            },
-            open: { url, context in
-                dataSource.open(url, context: context)
-            },
-            viewControllerPatterns: {
-                dataSource.viewControllerFactories.keys
-            },
-            handlerPatterns: {
-                dataSource.handlerFactories.keys
+    private final func lookupViewController(for url: URLConvertible, context: Any? = nil) -> (URLMatchResult, NavigatorFactoryViewController)? {
+        let urlPatterns = viewControllerFactories.keys
+        // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配前者
+        if let matchResult = matcher.match(url, from: urlPatterns),
+           let factory = viewControllerFactories[matchResult.pattern] {
+            return (matchResult, factory)
+        }
+        for child in childContainers {
+            if let (matchResult, factory) = child.lookupViewController(for: url, context: context) {
+                return (matchResult, factory)
             }
-        )
+        }
+        return nil
     }
+    
+    private final func lookupOpenHandler(for url: URLConvertible, context: Any? = nil) -> (URLMatchResult, NavigatorFactoryOpenHandler)? {
+        let urlPatterns = handlerFactories.keys
+        // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配前者
+        if let matchResult = matcher.match(url, from: urlPatterns),
+           let factory = handlerFactories[matchResult.pattern] {
+            return (matchResult, factory)
+        }
+        for child in childContainers {
+            if let (matchResult, factory) = child.lookupOpenHandler(for: url, context: context) {
+                return (matchResult, factory)
+            }
+        }
+        return nil
+    }
+    
+    // MARK: - Plugins
+    
+    private final func prepare(_ factory:  @escaping NavigatorFactoryViewController, matchResult: URLMatchResult) -> NavigatorFactoryViewController {
+        let preparedFactory = plugins.reduce(factory) { $1.prepare($0, matchResult: matchResult) }
+        return childContainers.reduce(preparedFactory, { $1.prepare($0, matchResult: matchResult) })
+    }
+    
+    private final func prepare(_ factory: @escaping NavigatorFactoryOpenHandler, matchResult: URLMatchResult) -> NavigatorFactoryOpenHandler {
+        let preparedFactory = plugins.reduce(factory) { $1.prepare($0, matchResult: matchResult) }
+        return childContainers.reduce(preparedFactory, { $1.prepare($0, matchResult: matchResult) })
+    }
+    
+    private let matcher: URLMatcher
+    private let plugins: [PluginType]
+    private var childContainers: [Navigator] = []
+    private var viewControllerFactories: Registration<URLPattern, NavigatorFactoryViewController> = Registration()
+    private var handlerFactories: Registration<URLPattern, NavigatorFactoryOpenHandler> = Registration()
 }
 
-public extension Navigator {
+private extension Navigator {
     
     struct Registration<Key: Hashable, Value> {
         var keys: Array<Key> = []
@@ -148,43 +166,6 @@ public extension Navigator {
             }
         }
     }
-    
-    final class Datasource {
-        
-        public let matcher: URLMatcher
-        public private(set) var viewControllerFactories: Registration<URLPattern, NavigatorFactoryViewController> = Registration()
-        public private(set) var handlerFactories: Registration<URLPattern, NavigatorFactoryOpenHandler> = Registration()
-        
-        public init(matcher: URLMatcher) {
-            self.matcher = matcher
-        }
-        
-        fileprivate func register(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryViewController) {
-            viewControllerFactories[pattern] = factory
-        }
-        
-        fileprivate func handle(_ pattern: URLPattern, _ factory: @escaping NavigatorFactoryOpenHandler) {
-            handlerFactories[pattern] = factory
-        }
-        
-        fileprivate func build(for url: URLConvertible, context: Any?) -> Result<UIViewController, Error> {
-            registrationCheck()
-            let urlPatterns = viewControllerFactories.keys
-            // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配先者
-            guard let match = matcher.match(url, from: urlPatterns) else { return .failure(NavigatorError.notMatch) }
-            guard let factory = viewControllerFactories[match.pattern] else { return .failure(NavigatorError.notFactory) }
-            return factory(url, match.values, context)
-        }
-        
-        fileprivate func open(_ url: URLConvertible, context: Any? = nil) -> Bool {
-            registrationCheck()
-            let urlPatterns = handlerFactories.keys
-            // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配先者
-            guard let match = matcher.match(url, from: urlPatterns) else { return false }
-            guard let handler = handlerFactories[match.pattern] else { return false }
-            return handler(url, match.values, context)
-        }
-    }
 }
 
 // Registration Internals
@@ -196,7 +177,7 @@ private func registrationCheck() {
     guard registrationNeeded else {
         return
     }
-    if let registering = (Navigator.main as Any) as? NavigatorRegistering {
+    if let registering = (Navigator.root as Any) as? NavigatorRegistering {
         type(of: registering).registerAllURLs()
     }
     registrationNeeded = false

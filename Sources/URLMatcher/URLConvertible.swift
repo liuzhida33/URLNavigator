@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 public protocol URLConvertible {
     var urlValue: URL? { get }
@@ -37,4 +38,32 @@ extension URL: URLConvertible {
     public var urlValue: URL? { self }
     
     public var urlStringValue: String { absoluteString }
+}
+
+extension UIApplicationShortcutItem: URLConvertible {
+    
+    public var urlValue: URL? {
+        URL(string: type)
+    }
+    
+    public var urlStringValue: String {
+        type
+    }
+}
+
+extension NSUserActivity: URLConvertible {
+    
+    public var urlValue: URL? {
+        URL(string: activityType)
+    }
+    
+    public var urlStringValue: String {
+        activityType
+    }
+}
+
+extension NavigatorError: LocalizedError {
+    public var errorDescription: String? {
+        "\(self)"
+    }
 }

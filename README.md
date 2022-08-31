@@ -113,7 +113,7 @@ func application(_ application: UIApplication, open url: URL, sourceApplication:
 }
 ```
 
-#### 传递附加参数
+#### 4. 传递附加参数
 
 ```swift
     let context: [AnyHashable: Any] = [
@@ -122,7 +122,29 @@ func application(_ application: UIApplication, open url: URL, sourceApplication:
     navigator.build("navigator://user/10", context: context)
     navigator.open("navigator://alert?title=Hi", context: context)
 ```
+#### 5. 创建自己的 `Navigator` 容器
 
+```swift
+    // 需要在注册前指定新容器，否则之前的注册将会失效
+    extension Navigator {
+        static let mock = Navigator(plugins: [NavigatorLoggerPlugin()])
+    }
+    
+    public static func registerAllURLs() {
+        
+        mock.register("navigator://user/123") { url, values, context in
+            .success(UIViewController())
+        }
+    }
+    
+    let result = Navigator.mock.build(for: "navigator://user/123")
+    switch result {
+    case .success(let vc):
+        XCTAssert(true, vc.description)
+    case .failure(let error):
+        XCTAssertTrue(false, error.localizedDescription)
+    }
+```
 
 ## Installation
 

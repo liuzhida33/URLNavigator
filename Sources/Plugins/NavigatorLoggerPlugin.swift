@@ -10,17 +10,6 @@ import UIKit
 
 public struct NavigatorLoggerPlugin: PluginType {
     
-    public func didBuild(_ result: Result<UIViewController, Error>) -> Result<UIViewController, Error> {
-        switch result {
-        case .success(let viewController):
-            viewController.title = "测试"
-            return .success(viewController)
-        case .failure(let error):
-            return .failure(error)
-        }
-    }
-    
-    
     public init(log: @escaping (String) -> Void = { print($0 ) },
                 dumpPath: @escaping (Any) -> Void = { dump($0) }) {
         self.log = log

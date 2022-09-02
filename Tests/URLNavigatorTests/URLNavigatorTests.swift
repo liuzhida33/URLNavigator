@@ -15,6 +15,8 @@ final class URLNavigatorTests: XCTestCase, Navigating {
         case .failure(let error):
             XCTAssertTrue(false, error.localizedDescription)
         }
+        let flag = navigator.open("navigator://user/123", context: ["errCode": 0, "errMsg": "支付成功"])
+        XCTAssertTrue(flag)
         let result2 =  Navigator.parent.build(for: "navigator://user/444")
         switch result2 {
         case .success(let vc):
@@ -49,7 +51,7 @@ final class URLNavigatorTests: XCTestCase, Navigating {
 
 extension Navigator {
     static let mock = Navigator(child: main, plugins: [NavigatorLoggerPlugin()])
-    static let parent = Navigator(child: mock, plugins: [TestPlugin()])
+    static let parent = Navigator(child: mock, plugins: [Test1Plugin(), Test2Plugin()])
 }
 
 extension Navigator: NavigatorRegistering {
@@ -88,7 +90,9 @@ extension Navigator: NavigatorRegistering {
             vc.uid = values["id"] as? Int
             return .success(vc)
         }
-        
+        mock.handle("navigator://user/<int:id>") { url, values, context in
+            return true
+        }
     }
 }
 
@@ -106,11 +110,45 @@ struct TestPlugin: PluginType {
         { url, values, context in
             switch factory(url, values, context) {
             case .success(let viewController):
-                viewController.title = "测试"
+                viewController.title = "测试标题"
                 return .success(viewController)
             case .failure(let error):
                 return .failure(error)
             }
+        }
+    }
+}
+
+struct Test1Plugin: PluginType {
+    
+    func prepare(_ factory: @escaping NavigatorFactoryViewController, matchResult: URLMatchResult) -> NavigatorFactoryViewController {
+        { url, values, context in
+            print("测试顺序1")
+            return factory(url, values, context)
+        }
+    }
+    
+    func prepare(_ factory: @escaping NavigatorFactoryOpenHandler, matchResult: URLMatchResult) -> NavigatorFactoryOpenHandler {
+        { url, values, context in
+            print("测试顺序1")
+            return factory(url, values, context)
+        }
+    }
+}
+
+struct Test2Plugin: PluginType {
+    
+    func prepare(_ factory: @escaping NavigatorFactoryViewController, matchResult: URLMatchResult) -> NavigatorFactoryViewController {
+        { url, values, context in
+            print("测试顺序2")
+            return factory(url, values, context)
+        }
+    }
+    
+    func prepare(_ factory: @escaping NavigatorFactoryOpenHandler, matchResult: URLMatchResult) -> NavigatorFactoryOpenHandler {
+        { url, values, context in
+            print("测试顺序2")
+            return factory(url, values, context)
         }
     }
 }

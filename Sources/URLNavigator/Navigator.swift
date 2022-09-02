@@ -69,7 +69,8 @@ public final class Navigator {
         // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配前者
         if let (matchResult, factory) = lookupViewController(for: url, context: context) {
             
-            let preparedFactory = prepare(factory, matchResult: matchResult)
+            let plugins = lookupPlugins().reversed()
+            let preparedFactory = plugins.reduce(factory) { $1.prepare($0, matchResult: matchResult) }
             
             return preparedFactory(url, matchResult.values, context)
         }
@@ -82,7 +83,9 @@ public final class Navigator {
         // 匹配采用“FIFO”原则，即重复注册相同规则下优先匹配前者
         if let (matchResult, factory) = lookupOpenHandler(for: url, context: context) {
             
-            let preparedFactory = prepare(factory, matchResult: matchResult)
+            let plugins = lookupPlugins().reversed()
+            
+            let preparedFactory = plugins.reduce(factory) { $1.prepare($0, matchResult: matchResult) }
             
             return preparedFactory(url, matchResult.values, context)
         }
@@ -124,14 +127,13 @@ public final class Navigator {
     
     // MARK: - Plugins
     
-    private final func prepare(_ factory:  @escaping NavigatorFactoryViewController, matchResult: URLMatchResult) -> NavigatorFactoryViewController {
-        let preparedFactory = plugins.reduce(factory) { $1.prepare($0, matchResult: matchResult) }
-        return childContainers.reduce(preparedFactory, { $1.prepare($0, matchResult: matchResult) })
-    }
-    
-    private final func prepare(_ factory: @escaping NavigatorFactoryOpenHandler, matchResult: URLMatchResult) -> NavigatorFactoryOpenHandler {
-        let preparedFactory = plugins.reduce(factory) { $1.prepare($0, matchResult: matchResult) }
-        return childContainers.reduce(preparedFactory, { $1.prepare($0, matchResult: matchResult) })
+    private final func lookupPlugins() -> [PluginType] {
+        var result: [PluginType] = []
+        for child in childContainers {
+            result.append(contentsOf: child.lookupPlugins())
+        }
+        result.append(contentsOf: plugins)
+        return result
     }
     
     private let matcher: URLMatcher
